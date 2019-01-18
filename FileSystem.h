@@ -9,18 +9,19 @@ typedef struct super_block
     int file_number;
     int free_blocks;
     int first_file;
+    int all_blocks;
 }super_block;
 
 typedef struct descriptor
 {
-    char fname;
+    char fname[10];
     int fsize;
     int address;
 }descriptor;
 
 void menu();
 void create_disk(int B);
-int remove_disk();
+void delete_disk();
 void upload_file(char *);
 void download_file(char *);
 void remove_file();
@@ -28,7 +29,7 @@ void show_map();
 void defragment();
 
 super_block* super;
-descriptor *descriptors;
+descriptor* descriptors;
 
 
-#endif // FILESYSTEM_INCLUDED
+#endif
