@@ -1,43 +1,59 @@
-//
-// Created by mateusz on 15.01.19.
-//
 #include <stdio.h>
 #include <stdlib.h>
-#include "header.h"
+#include "FileSystem.h"
+#include<string.h>
+
 
 void menu()
 {
-    puts("Welcome to the file system");
-    puts("Choose one of following options:");
-    puts("1 - create VirtualDisk");
-    puts("2 - delete VirtualDisk");
-    puts("3 - send file from VirtualDisk to Linux");
-    puts("4 - send file from Linux to VirtualDisk");
-    puts("5 - remove file from VirtualDisk");
-    puts("6 - show map");
-    puts("q - exit");
-
-    switch(getchar())
+    _Bool QUIT =0;
+    while(QUIT == 0)
     {
-        case '1':
-            puts("Enter size of the disk [kB]: ");
-            int size;
-            scanf("%d", &size);
-            printf("You chose %d bytes. Additionally, x bytes are going to be allocated\n", size);
-            create_disk(size);
+        puts("Welcome to the file system");
+        puts("Choose one of following options:");
+        puts("1 - create VirtualDisk");
+        puts("2 - delete VirtualDisk");
+        puts("3 - send file from VirtualDisk to Linux");
+        puts("4 - send file from Linux to VirtualDisk");
+        puts("5 - remove file from VirtualDisk");
+        puts("6 - show map");
+        puts("q - exit");
+
+        switch(getchar())
+        {
+            case '1':
+                while(getchar() != '\n');
+                puts("Enter size of the disk [kB]: ");
+                int size;
+                scanf("%d", &size);
+                printf("You chose %d bytes. Additionally, x bytes are going to be allocated\n", size);
+                create_disk(size);
+                break;
+            case '2':
+                 while(getchar() != '\n');
+                delete_disk();
+                break;
+            case '3': break;
+            case '4':
+
+                while(getchar() != '\n');
+                puts("What's the name of the file you want to upload (max size 10)?");
+                char TempName[10];
+                scanf("%c",TempName);
+                upload_file(TempName);
+                break;
+            case '5': break;
+            case '6': break;
+            case 'q':
+                while(getchar() != '\n');
+                QUIT = 1;
+                puts("Bye!");
+                break;
+            default:
+             while(getchar() != '\n');
+            puts("Wrong option chosen");
             break;
-        case '2':
-            delete_disk();
-            break;
-        case '3': break;
-        case '4': break;
-        case '5': break;
-        case '6': break;
-        case 'q':
-            QUIT = 1;
-            puts("Bye!");
-            break;
-        default: puts("Wrong option chosen");
+        }
     }
 }
 
@@ -48,6 +64,8 @@ void create_disk(int B)
     super->disk_size = B*BLOCK_SIZE + sizeof(descriptor)*B + sizeof(super_block);
     super->file_number = 0;
     super->free_blocks = B;
+    super->first_file = super->disk_size - B*BLOCK_SIZE;
+    super->all_blocks = B;
     printf("%d = %d + %d + %d \n", super->disk_size, B*BLOCK_SIZE, (int)sizeof(descriptor)*B, (int) sizeof(struct super_block));
     FILE *pt = fopen("VirtualDisk", "wb+");
     if (fwrite(super, sizeof(super_block), 1,pt) != 1)
@@ -72,3 +90,60 @@ void delete_disk()
     else
         puts("Couldn't delete a VirtualDisk");
 }
+void upload_file(char* FileName)
+{
+    char line[256];
+    char linec[256];
+    FILE *pt = fopen(FileName,"r+b");
+    FILE *disk = fopen("VirtualDisk","w+b");
+    int FileSize;
+    if(pt == NULL)
+    {
+      puts("There is no such file to upload.");
+      return;
+    }
+    if(disk == NULL)
+    {
+        puts("Not able to open the disk.");
+        return;
+    }
+    fseek(pt, 0L, SEEK_END);
+    FileSize = ftell(pt);
+    if(FileSize > super->free_blocks*BLOCK_SIZE)
+    {
+        puts("There isn't enough space for the file.");
+        return;
+
+    }
+    fseek(pt, 0L,SEEK_SET);
+    strcpy(descriptors[super->file_number].fname,FileName);
+    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE + 1;
+    descriptors[super->file_number].address = super->disk_size-super->free_blocks*BLOCK_SIZE;
+
+    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_SET );
+    while ( fgets ( line, sizeof line,pt ) != NULL ) /* read a line */
+    {
+        fputs (line, stdout); /* write the line */
+        strcpy(linec, line);
+        fprintf (disk , linec);
+    }
+    super->file_number++;
+    super->free_blocks -= FileSize/BLOCK_SIZE + 1; /*not the best solution*/
+
+    fseek(disk,0L,SEEK_SET);
+    fwrite(super, sizeof(super_block), 1,disk);
+    fseek(disk,sizeof(super_block)+(super->file_number-1)*sizeof(descriptor),SEEK_SET);
+    fwrite(&descriptors[super->file_number-1],sizeof(descriptor),1,disk);
+
+
+    fclose (disk);
+    fclose (pt);
+
+
+
+
+
+}
+
+
+
