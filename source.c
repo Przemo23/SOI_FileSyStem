@@ -3,6 +3,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 #include "header.h"
 
 void menu()
@@ -53,6 +54,8 @@ void create_disk(int B)
     super->disk_size = B*BLOCK_SIZE + sizeof(descriptor)*B + sizeof(super_block);
     super->file_number = 0;
     super->free_blocks = B;
+    super->first_file = super->disk_size - BLOCK_SIZE*B;
+    super->all_blocks = B;
     printf("%d = %d + %d + %d \n", super->disk_size, B*BLOCK_SIZE, (int)sizeof(descriptor)*B, (int) sizeof(struct super_block));
     FILE *pt = fopen("VirtualDisk", "wb+");
     if (fwrite(super, sizeof(super_block), 1,pt) != 1)
@@ -76,4 +79,46 @@ void delete_disk()
         puts("VirtualDisk deleted successfully");
     else
         puts("Couldn't delete a VirtualDisk");
+}
+
+void upload_file(char *filename)
+{
+    FILE *disk, *uploading;
+    char line[256];
+    char linec[256];
+    if (strlen(filename) > MAX_FILENAME_LENGTH) {
+        puts("Uploading to VirtualDisk failed. Filename is too long");
+        return;
+    }
+    uploading = fopen(filename, "r");
+    fseek(uploading, 0L, SEEK_END);
+    int size = ftell(uploading);
+    if (size > super->free_blocks * BLOCK_SIZE) {
+        puts("Uploading to VirtualDisk failed. Lack of free memory");
+    }
+    else
+    {
+        strcpy(descriptors[super->file_number].fname, filename);
+        descriptors[super->file_number].fsize = size / BLOCK_SIZE + 1;
+        descriptors[super->file_number].address = super->disk_size - super->free_blocks * BLOCK_SIZE;
+        super->free_blocks -= descriptors[super->file_number].fsize;
+        super->file_number++;
+
+        disk = fopen("VirtualDisk", "r+b");
+        fseek(disk, 0, SEEK_SET);
+        fwrite(super, sizeof(super_block), 1, disk);
+        fseek(disk, sizeof(descriptor) * (super->file_number - 1), SEEK_CUR);
+        fwrite(&descriptors[super->file_number - 1], sizeof(descriptor), 1, disk);
+        fseek(disk, -(descriptors[super->file_number - 1].address), SEEK_END);
+        fseek(uploading, 0L, SEEK_SET);
+        if (uploading != NULL) {
+            while (fgets(line, sizeof line, uploading) != NULL) { /* read a line */
+                fputs(line, stdout); /* write the line */
+                strcpy(linec, line);
+                fprintf(disk, linec);
+            }
+            fclose(disk);
+            fclose(uploading);
+        }
+    }
 }
