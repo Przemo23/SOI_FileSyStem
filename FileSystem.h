@@ -29,9 +29,11 @@ void remove_file();
 void show_map();
 void defragment();
 bool load_disk();
+void show_descriptors();
 
 super_block* super;
 descriptor* descriptors;
+bool *bitmap;
 
 
 #endif

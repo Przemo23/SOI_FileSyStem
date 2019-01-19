@@ -11,7 +11,7 @@ void menu()
     bool QUIT =0;
     while(QUIT == 0)
     {
-        puts("Welcome to the file system");
+        puts("\n\n\nWelcome to the file system");
         puts("Choose one of following options:");
         puts("1 - create VirtualDisk");
         puts("2 - delete VirtualDisk");
@@ -19,6 +19,7 @@ void menu()
         puts("4 - send file from Linux to VirtualDisk");
         puts("5 - remove file from VirtualDisk");
         puts("6 - show map");
+        puts("d - show descriptors");
         puts("q - exit");
 
         switch(getchar())
@@ -50,8 +51,26 @@ void menu()
                 upload_file(TempName1);
                 break;
             case '5':
+                while(getchar() != '\n');
+                if(super->file_number <= 0)
+                    puts("The VirtualDisk is empty");
+                else
+                {
+                    int choice;
+                    puts("Choose one of the following files: ");
+                    for (int iter = 0; iter < super->file_number; iter++)
+                        printf("File %d: %s\n", iter + 1, descriptors[iter].fname);
+                    scanf("%d", &choice);
+                    while(getchar() != '\n');
+                    remove_file(choice);
+                }
                 break;
             case '6':
+                while(getchar() != '\n');
+                show_map();
+                break;
+            case 'd':
+                show_descriptors();
                 break;
             case 'q':
                 while(getchar() != '\n');
@@ -83,11 +102,23 @@ bool load_disk()
     printf("Free blocks: %d\n", super->free_blocks);
     printf("Number of files: %d\n", super->file_number);
     printf("First file address: %d\n\n\n", super->first_file);
+    bitmap = malloc(sizeof(bool)*super->all_blocks);
+    int iter, iter2;
+    for(iter = 0; iter<super->all_blocks;iter++)
+        bitmap[iter] = false;
+    for(iter = 0; iter<super->file_number; iter++)
+        for(iter2 = descriptors[iter].address/BLOCK_SIZE; iter2 < descriptors[super->file_number -1].address/BLOCK_SIZE + descriptors[super->file_number-1].fsize; iter2++)
+            bitmap[iter2] = true;
+
     return 1;
 }
 
 void create_disk(int B)
 {
+    bitmap = malloc(sizeof(bool)*B);
+    int iter;
+    for(iter = 0; iter<B; iter++)
+        bitmap[iter] = false;
     super = malloc(sizeof(super_block));
     descriptors = malloc(sizeof(descriptor)*B);
     super->disk_size = B*BLOCK_SIZE + sizeof(descriptor)*B + sizeof(super_block);
@@ -148,7 +179,10 @@ void upload_file(char* FileName)
     fseek(pt, 0L,SEEK_SET);
     strcpy(descriptors[super->file_number].fname,FileName);
     descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE+1;
-    descriptors[super->file_number].address = super->disk_size-super->free_blocks*BLOCK_SIZE;
+    if(super->file_number == 0)
+        descriptors[super->file_number].address = sizeof(super) + sizeof(descriptor)*super->all_blocks;
+    else
+        descriptors[super->file_number].address = descriptors[super->file_number-1].address + descriptors[super->file_number-1].fsize*BLOCK_SIZE;
 
     fseek ( disk , descriptors[super->file_number].address,SEEK_SET);
     int Iter = 0;
@@ -167,10 +201,57 @@ void upload_file(char* FileName)
     fseek(disk,sizeof(super_block),SEEK_SET);
     fwrite(descriptors,sizeof(descriptor)*super->file_number,1,disk);
     puts("Download succesful");
-
+    int it;
+    for(it = descriptors[super->file_number -1].address/BLOCK_SIZE; it <descriptors[super->file_number -1].address/BLOCK_SIZE + descriptors[super->file_number-1].fsize; it++ )
+        bitmap[it] = true;
     fclose (disk);
     fclose (pt);
 
+}
+void show_map()
+{
+
+        int iter, iter2;
+        printf("| S_B |");
+        for(iter = 0; iter<super->file_number; iter++)
+            printf(" D%d |", iter+1);
+        for(iter = 0; iter < super->free_blocks; iter++)
+            printf(" D_free |");
+        for(iter = 0; iter < super->all_blocks; iter++)
+        {
+            if(bitmap[iter] == false)
+                printf(" FREE |");
+            else
+                printf(" FILLED |");
+        }
+        puts("\n");
+}
+void show_descriptors()
+{
+    int iter;
+    for(iter = 0; iter < super->file_number; iter++)
+    {
+        printf("DESCRIPTOR %d\n",  iter + 1);
+        printf("%s\n", descriptors[iter].fname);
+        printf("%d\n", descriptors[iter].address);
+        printf("%d\n", descriptors[iter].fsize);
+        puts("\n\n");
+    }
+}
+void remove_file(int choice)
+{
+    int it;
+    for(it = descriptors[choice-1].address/BLOCK_SIZE; it <descriptors[choice -1].address/BLOCK_SIZE + descriptors[choice-1].fsize; it++ )
+        bitmap[it] = false;
+    super->free_blocks+=descriptors[choice-1].fsize;
+    int iter;
+    for(iter = choice-1; iter<super->file_number; iter++)
+    {
+        descriptors[iter].fsize = descriptors[iter+1].fsize;
+        descriptors[iter].address = descriptors[iter+1].address;
+        strcpy(descriptors[iter].fname, descriptors[iter+1].fname);
+    }
+    super->file_number--;
 }
 void download_file(char* FileName)
 {
@@ -242,10 +323,6 @@ void defragment()
         puts("Cannot open the disk.");
         return;
     }
-
-
-
-
 
 }
 
