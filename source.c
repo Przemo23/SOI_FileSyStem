@@ -22,18 +22,34 @@ void menu()
     {
         case '1':
             while(getchar() != '\n');
+            FILE *temp = fopen("VirtualDisk", "rb");
+            if(temp)
+            {
+                puts("Disk already exists");
+                break;
+            }
             puts("Enter size of the disk [kB]: ");
             int size;
             scanf("%d", &size);
-            printf("You chose %d bytes. Additionally, x bytes are going to be allocated\n", size);
+            printf("You chose %d [kB]. Additionally, %d [B] are going to be allocated\n", size, sizeof(super_block) +
+                    sizeof(descriptor)*size);
             create_disk(size);
             break;
+
+
         case '2':
             while(getchar() != '\n');
             delete_disk();
             break;
-        case '3': break;
-        case '4': break;
+        case '3':
+            break;
+        case '4':
+            while(getchar() != '\n');
+            char filename[MAX_FILENAME_LENGTH];
+            puts("Name of file to upload: ");
+            scanf("%s", &filename);
+            upload_file(filename);
+            break;
         case '5': break;
         case '6': break;
         case 'q':
@@ -81,44 +97,72 @@ void delete_disk()
         puts("Couldn't delete a VirtualDisk");
 }
 
-void upload_file(char *filename)
+void upload_file(char *FileName)
 {
-    FILE *disk, *uploading;
     char line[256];
     char linec[256];
-    if (strlen(filename) > MAX_FILENAME_LENGTH) {
-        puts("Uploading to VirtualDisk failed. Filename is too long");
+    FILE *pt = fopen("plik2","r+b");
+    FILE *disk = fopen("VirtualDisk","w+b");
+    int FileSize;
+    if(pt == NULL)
+    {
+        puts("There is no such file to upload.");
         return;
     }
-    uploading = fopen(filename, "r");
-    fseek(uploading, 0L, SEEK_END);
-    int size = ftell(uploading);
-    if (size > super->free_blocks * BLOCK_SIZE) {
-        puts("Uploading to VirtualDisk failed. Lack of free memory");
-    }
-    else
+    if(disk == NULL)
     {
-        strcpy(descriptors[super->file_number].fname, filename);
-        descriptors[super->file_number].fsize = size / BLOCK_SIZE + 1;
-        descriptors[super->file_number].address = super->disk_size - super->free_blocks * BLOCK_SIZE;
-        super->free_blocks -= descriptors[super->file_number].fsize;
-        super->file_number++;
-
-        disk = fopen("VirtualDisk", "r+b");
-        fseek(disk, 0, SEEK_SET);
-        fwrite(super, sizeof(super_block), 1, disk);
-        fseek(disk, sizeof(descriptor) * (super->file_number - 1), SEEK_CUR);
-        fwrite(&descriptors[super->file_number - 1], sizeof(descriptor), 1, disk);
-        fseek(disk, -(descriptors[super->file_number - 1].address), SEEK_END);
-        fseek(uploading, 0L, SEEK_SET);
-        if (uploading != NULL) {
-            while (fgets(line, sizeof line, uploading) != NULL) { /* read a line */
-                fputs(line, stdout); /* write the line */
-                strcpy(linec, line);
-                fprintf(disk, linec);
-            }
-            fclose(disk);
-            fclose(uploading);
-        }
+        puts("Not able to open the disk.");
+        return;
     }
+    fseek(pt, 0L, SEEK_END);
+    FileSize = ftell(pt);
+    if(FileSize > super->free_blocks*BLOCK_SIZE)
+    {
+        puts("There isn't enough space for the file.");
+        return;
+
+    }
+    fseek(pt, 0L,SEEK_SET);
+    strcpy(descriptors[super->file_number].fname,FileName);
+    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE + 1;
+    descriptors[super->file_number].address = super->disk_size-super->free_blocks*BLOCK_SIZE;
+    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_SET );
+    while ( fgets ( line, sizeof line,pt ) != NULL ) /* read a line */
+    {
+        fputs (line, stdout); /* write the line */
+        strcpy(linec, line);
+        fprintf (disk , linec);
+    }
+    super->file_number++;
+    super->free_blocks -= FileSize/BLOCK_SIZE + 1; /*not the best solution*/
+
+    fseek(disk,0L,SEEK_SET);
+    fwrite(super, sizeof(super_block), 1,disk);
+    fseek(disk,sizeof(super_block)+(super->file_number-1)*sizeof(descriptor),SEEK_SET);
+    fwrite(&descriptors[super->file_number-1],sizeof(descriptor),1,disk);
+
+
+    fclose (disk);
+    fclose (pt);
+
+}
+
+void load_disk()
+{
+    FILE *pt;
+    super = malloc(sizeof(super_block));
+    pt = fopen("VirtualDisk", "rb");
+    if(!pt)
+        return;
+    fseek(pt, 0L, SEEK_SET);
+    fread(super, sizeof(super_block), 1, pt);
+    size_t descriptors_number = super->file_number;
+    descriptors = malloc(sizeof(descriptor)*descriptors_number);
+    fread(descriptors, sizeof(descriptor), descriptors_number, pt);
+    puts("VirtualDisk parameters: \n\n");
+    printf("Disk size: %d\n", super->disk_size);
+    printf("Blocks allocated: %d\n", super->all_blocks);
+    printf("Free blocks: %d\n", super->free_blocks);
+    printf("Number of files: %d\n", super->file_number);
+    printf("First file address: %d\n\n\n", super->first_file);
 }
