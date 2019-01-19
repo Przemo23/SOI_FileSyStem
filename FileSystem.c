@@ -37,7 +37,7 @@ void menu()
             case '3':
                 while(getchar() != '\n');
                 puts("What's the name of the file you want to download (max size 10)?");
-                char TempName[10];
+                char TempName[10] = {'\000'};
                 scanf("%s",TempName);
                 download_file(TempName);
                 break;
@@ -180,32 +180,23 @@ void download_file(char* FileName)
         puts("Not able to open the disk.");
         return;
     }*/
-    int Iter ,Iter2;
-    bool QUIT,QUIT2;
+    int Iter;
+    bool QUIT;
     int FileAdress,FileSize;
     FileSize=-1;
 
     for(Iter = 0 ,QUIT = 0;Iter<super->file_number && QUIT == 0;Iter++)
     {
-        for(Iter2 = 0,QUIT2=0;Iter2<10 && QUIT2==0 ;Iter2++)
+        if(strcmp(FileName,descriptors[Iter].fname)==0)
         {
-            char znak = descriptors[Iter].fname[Iter2];
-           /* if(FileName[Iter2]!=descriptors[Iter].fname[Iter2])
-                QUIT2=1;
-            if(Iter2 == 9 && QUIT2 == 0)
-            {
-                FileAdress = descriptors[Iter].address;
-                FileSize = descriptors[Iter].fsize;
-            }*/
-
-        }
-        if(FileSize!=-1)
+            FileSize = descriptors[Iter].fsize;
+            FileAdress = descriptors[Iter].address;
             QUIT = 1;
+        }
     }
     if(FileSize == -1)
     {
         puts("There is no such file to download");
-
         return;
     }
     printf("%d",FileSize);
