@@ -32,23 +32,20 @@ void menu()
                 create_disk(size);
                 while(getchar() != '\n');
                 break;
+
             case '2':
                 while(getchar() != '\n');
                 delete_disk();
                 break;
+
             case '3':
                 while(getchar() != '\n');
-                if(super->file_number <= 0)
-                    puts("The VirtualDisk is empty");
-                else
-                {
-                    puts("Choose one of the following files: ");
-                    for (int iter = 0; iter < super->file_number; iter++)
-                        printf("File %d: %s\n", iter + 1, descriptors[iter].fname);
-                    puts("\n\n\n");
-    //                download_file(TempName);
-                }
+                puts("What's the name of the file you want to download (max size 10)?");
+                char TempName[10] = {'\000'};
+                scanf("%s",TempName);
+                download_file(TempName);
                 break;
+
             case '4':
                 while(getchar() != '\n');
                 puts("What's the name of the file you want to upload (max size 10)?");
@@ -56,6 +53,7 @@ void menu()
                 scanf("%s",TempName1);
                 upload_file(TempName1);
                 break;
+
             case '5':
                 while(getchar() != '\n');
                 if(super->file_number <= 0)
@@ -71,18 +69,22 @@ void menu()
                     remove_file(choice);
                 }
                 break;
+
             case '6':
                 while(getchar() != '\n');
                 show_map();
                 break;
+
             case 'd':
                 show_descriptors();
                 break;
+
             case 'q':
                 while(getchar() != '\n');
                 QUIT = 1;
                 puts("Bye!");
                 break;
+
             default:
                 while(getchar() != '\n');
                 puts("Wrong option chosen");
@@ -157,8 +159,8 @@ void delete_disk()
 void upload_file(char* FileName)
 {
     while(getchar() != '\n');
-    char line[256];
-    char linec[256];
+    char line;
+
     FILE *pt = fopen(FileName,"r+b");
     FILE *disk = fopen("VirtualDisk","w+b");
     int FileSize;
@@ -182,19 +184,19 @@ void upload_file(char* FileName)
     }
     fseek(pt, 0L,SEEK_SET);
     strcpy(descriptors[super->file_number].fname,FileName);
-    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE + 1;
+    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE+1;
     if(super->file_number == 0)
-        descriptors[super->file_number].address = sizeof(super) + sizeof(descriptor)*super->all_blocks;
+        descriptors[super->file_number].address = sizeof(super_block) + sizeof(descriptor)*super->all_blocks;
     else
         descriptors[super->file_number].address = descriptors[super->file_number-1].address + descriptors[super->file_number-1].fsize*BLOCK_SIZE;
 
-    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_END );
-    while ( fgets ( line, sizeof line,pt ) != NULL ) /* read a line */
+    fseek ( disk , descriptors[super->file_number].address,SEEK_SET);
+    do /* read a line */
     {
-        fputs (line, stdout); /* write the line */
-        strcpy(linec, line);
-        fprintf (disk , linec);
-    }
+        line = fgetc(pt);
+        fputc(line,disk);
+
+    }while(line != EOF);
     super->file_number++;
     super->free_blocks -= FileSize/BLOCK_SIZE + 1; /*not the best solution*/
 
@@ -202,7 +204,7 @@ void upload_file(char* FileName)
     fwrite(super, sizeof(super_block), 1,disk);
     fseek(disk,sizeof(super_block),SEEK_SET);
     fwrite(descriptors,sizeof(descriptor)*super->file_number,1,disk);
-    puts("Download succesful\n\n\n");
+    puts("Download succesful");
     int it;
     for(it = descriptors[super->file_number -1].address/BLOCK_SIZE; it <descriptors[super->file_number -1].address/BLOCK_SIZE + descriptors[super->file_number-1].fsize; it++ )
         bitmap[it] = true;
@@ -212,21 +214,20 @@ void upload_file(char* FileName)
 
 void show_map()
 {
-
-        int iter, iter2;
-        printf("| S_B |");
-        for(iter = 0; iter<super->file_number; iter++)
-            printf(" D%d |", iter+1);
-        for(iter = 0; iter < super->free_blocks; iter++)
-            printf(" D_free |");
-        for(iter = 0; iter < super->all_blocks; iter++)
-        {
-            if(bitmap[iter] == false)
-                printf(" FREE |");
-            else
-                printf(" FILLED |");
-        }
-        puts("\n");
+     int iter;
+     printf("| S_B |");
+     for(iter = 0; iter<super->file_number; iter++)
+         printf(" D%d |", iter+1);
+     for(iter = 0; iter < super->free_blocks; iter++)
+         printf(" D_free |");
+     for(iter = 0; iter < super->all_blocks; iter++)
+     {
+         if(bitmap[iter] == false)
+             printf(" FREE |");
+         else
+             printf(" FILLED |");
+     }
+     puts("\n");
 }
 void show_descriptors()
 {
@@ -255,4 +256,41 @@ void remove_file(int choice)
         strcpy(descriptors[iter].fname, descriptors[iter+1].fname);
     }
     super->file_number--;
+}
+void download_file(char* FileName)
+{
+    while(getchar() != '\n');
+    bool QUIT;
+    int Iter,FileAdress,FileSize;
+    FileSize=-1;
+    for(Iter = 0 ,QUIT = 0;Iter<super->file_number && QUIT == 0;Iter++)
+    {
+        if(strcmp(FileName,descriptors[Iter].fname)==0)
+        {
+            FileSize = descriptors[Iter].fsize;
+            FileAdress = descriptors[Iter].address;
+            QUIT = 1;
+        }
+    }
+    if(FileSize == -1)
+    {
+        puts("There is no such file to download");
+        return;
+    }
+    puts("Found file.");
+    strcat(FileName,".dl");
+    char linec;
+    FILE* Downloaded = fopen(FileName,"wb+");
+    FILE* Disk = fopen("VirtualDisk","rb+");
+    fseek(Disk,FileAdress,SEEK_SET);
+    linec = fgetc(Disk);
+    while(linec>0 && linec<127)
+    {
+
+        fputc(linec,Downloaded);
+        linec = fgetc(Disk);
+    }
+    fclose(Downloaded);
+    fclose(Disk);
+    return;
 }
