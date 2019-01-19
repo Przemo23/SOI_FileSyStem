@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#define BLOCK_SIZE 1024
 #include "FileSystem.h"
-#include<string.h>
+#include <string.h>
 
 
 void menu()
@@ -121,8 +122,8 @@ void delete_disk()
 void upload_file(char* FileName)
 {
     while(getchar() != '\n');
-    char line[256];
-    char linec[256];
+    char line;
+
     FILE *pt = fopen(FileName,"r+b");
     FILE *disk = fopen("VirtualDisk","w+b");
     int FileSize;
@@ -146,16 +147,18 @@ void upload_file(char* FileName)
     }
     fseek(pt, 0L,SEEK_SET);
     strcpy(descriptors[super->file_number].fname,FileName);
-    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE + 1;
+    descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE+1;
     descriptors[super->file_number].address = super->disk_size-super->free_blocks*BLOCK_SIZE;
 
-    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_END );
-    while ( fgets ( line, sizeof line,pt ) != NULL ) /* read a line */
+    fseek ( disk , descriptors[super->file_number].address,SEEK_SET);
+    int Iter = 0;
+    int sth = descriptors[super->file_number].fsize;
+    do /* read a line */
     {
-        fputs (line, stdout); /* write the line */
-        strcpy(linec, line);
-        fprintf (disk , linec);
-    }
+        line = fgetc(pt);
+        fputc(line,disk);
+
+    }while(line != EOF);
     super->file_number++;
     super->free_blocks -= FileSize/BLOCK_SIZE + 1; /*not the best solution*/
 
@@ -172,19 +175,16 @@ void upload_file(char* FileName)
 void download_file(char* FileName)
 {
     while(getchar() != '\n');
-    char line[256];
-    char linec[256];
+
     /*FILE *disk = fopen("VirtualDisk","r+b");
     if(disk == NULL)
     {
         puts("Not able to open the disk.");
         return;
     }*/
-    int Iter;
     bool QUIT;
-    int FileAdress,FileSize;
+    int Iter,FileAdress,FileSize;
     FileSize=-1;
-
     for(Iter = 0 ,QUIT = 0;Iter<super->file_number && QUIT == 0;Iter++)
     {
         if(strcmp(FileName,descriptors[Iter].fname)==0)
@@ -199,12 +199,54 @@ void download_file(char* FileName)
         puts("There is no such file to download");
         return;
     }
-    printf("%d",FileSize);
     puts("Found file.");
+    strcat(FileName,".dl");
+    char line[1024];
+    char linec;
+
+    Iter = 0;
+
+    FILE* Downloaded = fopen(FileName,"wb+");
+    FILE* Disk = fopen("VirtualDisk","rb+");
+    fseek(Disk,FileAdress,SEEK_SET);
+    //fprintf(Downloaded,"%s","Dupa");
+    linec = fgetc(Disk);
+    while(linec>0 && linec<127)
+    {
+
+        fputc(linec,Downloaded);
+        linec = fgetc(Disk);
+    }
+    /*
+    while(Iter < FileSize)
+    {
+        fgets(line,BLOCK_SIZE,Disk);
+        fputs(line,Downloaded);
+        Iter++;
+    }
+    fgets(line,BLOCK_SIZE*FileSize,Disk);
+    fputs(line,Downloaded);*/
+    fclose(Downloaded);
+    fclose(Disk);
+
+
+
 
     return;
+}
+void defragment()
+{
+    FILE* disk = fopen("VirtualDisk","rb");
+    if(disk == NULL)
+    {
+        puts("Cannot open the disk.");
+        return;
+    }
+
+
+
+
 
 }
-
 
 
