@@ -2,6 +2,7 @@
 #define FILESYSTEM_INCLUDED
 #define BLOCK_SIZE 1024
 #define MAX_FILE_NUMBER 16
+#include <stdbool.h>
 
 typedef struct super_block
 {
@@ -27,6 +28,7 @@ void download_file(char *);
 void remove_file();
 void show_map();
 void defragment();
+bool load_disk();
 
 super_block* super;
 descriptor* descriptors;
