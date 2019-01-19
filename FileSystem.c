@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "FileSystem.h"
 #include<string.h>
 
 
 void menu()
 {
-    _Bool QUIT =0;
+    bool QUIT =0;
     while(QUIT == 0)
     {
         puts("Welcome to the file system");
@@ -33,28 +34,55 @@ void menu()
                  while(getchar() != '\n');
                 delete_disk();
                 break;
-            case '3': break;
+            case '3':
+                while(getchar() != '\n');
+                puts("What's the name of the file you want to download (max size 10)?");
+                char TempName[10];
+                scanf("%s",TempName);
+                download_file(TempName);
+                break;
             case '4':
-
                 while(getchar() != '\n');
                 puts("What's the name of the file you want to upload (max size 10)?");
-                char TempName[10];
-                scanf("%c",TempName);
-                upload_file(TempName);
+                char TempName1[10];
+                scanf("%s",TempName1);
+                upload_file(TempName1);
                 break;
-            case '5': break;
-            case '6': break;
+            case '5':
+                break;
+            case '6':
+                break;
             case 'q':
                 while(getchar() != '\n');
                 QUIT = 1;
                 puts("Bye!");
                 break;
             default:
-             while(getchar() != '\n');
-            puts("Wrong option chosen");
-            break;
+                while(getchar() != '\n');
+                puts("Wrong option chosen");
+                break;
         }
     }
+}
+bool load_disk()
+{
+    FILE *pt;
+    super = malloc(sizeof(super_block));
+    pt = fopen("VirtualDisk", "rb");
+    if(!pt)
+        return 0;
+    fseek(pt, 0L, SEEK_SET);
+    fread(super, sizeof(super_block), 1, pt);
+    size_t descriptors_number = super->file_number;
+    descriptors = malloc(sizeof(descriptor)*descriptors_number);
+    fread(descriptors, sizeof(descriptor)*descriptors_number,1, pt);
+    puts("VirtualDisk parameters: \n\n");
+    printf("Disk size: %d\n", super->disk_size);
+    printf("Blocks allocated: %d\n", super->all_blocks);
+    printf("Free blocks: %d\n", super->free_blocks);
+    printf("Number of files: %d\n", super->file_number);
+    printf("First file address: %d\n\n\n", super->first_file);
+    return 1;
 }
 
 void create_disk(int B)
@@ -92,6 +120,7 @@ void delete_disk()
 }
 void upload_file(char* FileName)
 {
+    while(getchar() != '\n');
     char line[256];
     char linec[256];
     FILE *pt = fopen(FileName,"r+b");
@@ -120,7 +149,7 @@ void upload_file(char* FileName)
     descriptors[super->file_number].fsize = FileSize/BLOCK_SIZE + 1;
     descriptors[super->file_number].address = super->disk_size-super->free_blocks*BLOCK_SIZE;
 
-    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_SET );
+    fseek ( disk , -(super->disk_size-super->free_blocks*BLOCK_SIZE) , SEEK_END );
     while ( fgets ( line, sizeof line,pt ) != NULL ) /* read a line */
     {
         fputs (line, stdout); /* write the line */
@@ -132,16 +161,57 @@ void upload_file(char* FileName)
 
     fseek(disk,0L,SEEK_SET);
     fwrite(super, sizeof(super_block), 1,disk);
-    fseek(disk,sizeof(super_block)+(super->file_number-1)*sizeof(descriptor),SEEK_SET);
-    fwrite(&descriptors[super->file_number-1],sizeof(descriptor),1,disk);
-
+    fseek(disk,sizeof(super_block),SEEK_SET);
+    fwrite(descriptors,sizeof(descriptor)*super->file_number,1,disk);
+    puts("Download succesful");
 
     fclose (disk);
     fclose (pt);
 
+}
+void download_file(char* FileName)
+{
+    while(getchar() != '\n');
+    char line[256];
+    char linec[256];
+    /*FILE *disk = fopen("VirtualDisk","r+b");
+    if(disk == NULL)
+    {
+        puts("Not able to open the disk.");
+        return;
+    }*/
+    int Iter ,Iter2;
+    bool QUIT,QUIT2;
+    int FileAdress,FileSize;
+    FileSize=-1;
 
+    for(Iter = 0 ,QUIT = 0;Iter<super->file_number && QUIT == 0;Iter++)
+    {
+        for(Iter2 = 0,QUIT2=0;Iter2<10 && QUIT2==0 ;Iter2++)
+        {
+            char znak = descriptors[Iter].fname[Iter2];
+           /* if(FileName[Iter2]!=descriptors[Iter].fname[Iter2])
+                QUIT2=1;
+            if(Iter2 == 9 && QUIT2 == 0)
+            {
+                FileAdress = descriptors[Iter].address;
+                FileSize = descriptors[Iter].fsize;
+            }*/
 
+        }
+        if(FileSize!=-1)
+            QUIT = 1;
+    }
+    if(FileSize == -1)
+    {
+        puts("There is no such file to download");
 
+        return;
+    }
+    printf("%d",FileSize);
+    puts("Found file.");
+
+    return;
 
 }
 
