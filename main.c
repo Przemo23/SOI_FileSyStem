@@ -1,10 +1,11 @@
 #include <stdio.h>
-#include "FileSystem.h"
+#include "header.h"
 int main()
 {
-    if(load_disk()==1)
-        puts("Succesfully loaded disc.");
-
-    menu();
+    QUIT = 0;
+    load_disk();
+    while(!QUIT) menu();
     return 0;
 }
+
+
