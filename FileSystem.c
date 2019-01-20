@@ -81,6 +81,7 @@ void menu()
                 defragment();
                 break;
             case 'd':
+                while(getchar() != '\n');
                 show_descriptors();
                 break;
 
@@ -159,7 +160,7 @@ void delete_disk()
     if(status == 0)
         puts("VirtualDisk deleted successfully");
     else
-        puts("Couldn't delete a VirtualDisk");
+        puts("Couldn't delete VirtualDisk");
 }
 void upload_file(char* FileName)
 {
@@ -302,7 +303,7 @@ void download_file(char* FileName)
 }
 void defragment()
 {
-    FILE* Disk = fopen("VirtualDisk","wb+");
+    FILE* Disk = fopen("VirtualDisk","r+b");
     if(Disk == NULL)
     {
         puts("Opening the disk failed.");
@@ -313,7 +314,7 @@ void defragment()
         puts("The disk is empty");
         return;
     }
-    int FirstFile,CharsLeft,FirstHole,NextHole,TempIter,TempIter2;
+    int FirstFile,CharsLeft,FirstHole,NextHole,TempIter,TempIter2,DIter;
     char c;
     FirstHole = -1;
     for(FirstFile = 0;FirstFile<super->all_blocks;FirstFile++)
@@ -337,10 +338,18 @@ void defragment()
                 bitmap[TempIter]=true;
             FirstFile = NextHole-1;
             FirstHole = -1;
-
         }
     }
+    /* Updating  descriptors*/
 
+    DIter = 0;
+    descriptors[DIter].address = super->first_file;
+    while(DIter<super->file_number-1)
+    {
+      descriptors[1+DIter].address = descriptors[DIter].address + descriptors[DIter].fsize*BLOCK_SIZE;
+        DIter++;
+    }
+    fclose(Disk);
 
 
 
