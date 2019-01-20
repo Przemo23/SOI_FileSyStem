@@ -218,7 +218,7 @@ void upload_file(char* FileName)
     puts("Download succesful");
     int it;
     for(it = descriptors[super->file_number -1].address/BLOCK_SIZE; it <descriptors[super->file_number -1].address/BLOCK_SIZE + descriptors[super->file_number-1].fsize; it++ )
-        bitmap[it] = true;
+        bitmap[it] = true; /*SigSeg sometimes, check it out*/
     fclose (disk);
     fclose (pt);
 }
@@ -354,7 +354,7 @@ void defragment()
     FirstHole = -1;
     for(FirstFile = 0;FirstFile<super->all_blocks;FirstFile++)
     {
-        if(bitmap[FirstFile]==false)
+        if(bitmap[FirstFile]==false && FirstHole == -1)
             FirstHole = FirstFile;
         if(bitmap[FirstFile]==true && FirstHole > -1)
         {
@@ -371,7 +371,7 @@ void defragment()
             }
             for(TempIter = FirstHole,TempIter2=0;TempIter2<NextHole-FirstFile;TempIter++,TempIter2++)
                 bitmap[TempIter]=true;
-            FirstFile = NextHole-1;
+            FirstFile = FirstHole + (NextHole - FirstFile-1);
             FirstHole = -1;
         }
     }
@@ -384,6 +384,8 @@ void defragment()
       descriptors[1+DIter].address = descriptors[DIter].address + descriptors[DIter].fsize*BLOCK_SIZE;
         DIter++;
     }
+    fseek(Disk,sizeof(super_block),SEEK_SET);
+    fwrite(descriptors,sizeof(descriptor)*super->file_number,1,Disk);
     fclose(Disk);
 
 
