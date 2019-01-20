@@ -121,7 +121,7 @@ void load_disk()
     for(iter = 0; iter<super->all_blocks;iter++)
         bitmap[iter] = false;
     for(iter = 0; iter<super->file_number; iter++)
-        for(iter2 = descriptors[iter].address/BLOCK_SIZE; iter2 < descriptors[super->file_number -1].address/BLOCK_SIZE + descriptors[super->file_number-1].fsize; iter2++)
+        for(iter2 = (descriptors[iter].address-super->first_file)/BLOCK_SIZE; iter2 < (descriptors[iter].address-super->first_file)/BLOCK_SIZE + descriptors[super->file_number-1].fsize; iter2++)
             bitmap[iter2] = true;
 }
 
@@ -158,7 +158,12 @@ void delete_disk()
     char filename[] = "VirtualDisk";
     status = remove(filename);
     if(status == 0)
+    {
+        free(descriptors);
+        free(super);
+        free(bitmap);
         puts("VirtualDisk deleted successfully");
+    }
     else
         puts("Couldn't delete VirtualDisk");
 }
@@ -254,6 +259,33 @@ void remove_file(int choice)
     for(it = descriptors[choice-1].address/BLOCK_SIZE; it <descriptors[choice -1].address/BLOCK_SIZE + descriptors[choice-1].fsize; it++ )
         bitmap[it] = false;
     super->free_blocks+=descriptors[choice-1].fsize;
+    FILE* Disk = fopen("VirtualDisk","r+b");
+    if(Disk == NULL)
+    {
+        puts("Opening the disk failed.");
+        return;
+    }
+    /*Cleaning the file*/
+
+    fseek(Disk,descriptors[choice-1].address,SEEK_SET);
+    for(it = 0; it<descriptors[choice-1].fsize*BLOCK_SIZE;it++)
+        fputc('\000',Disk);
+    /*Clearing and moving descriptors */
+
+    int CharsLeft,CharsToCopy;
+    CharsToCopy = (super->file_number - choice)*sizeof(descriptor);
+    char c;
+    for(CharsLeft = CharsToCopy; CharsLeft>0;CharsLeft--)
+    {
+        fseek(Disk,(choice+1) * sizeof(descriptor) +(CharsToCopy - CharsLeft),SEEK_SET);
+        c = fgetc(Disk);
+        fseek(Disk, choice * sizeof(descriptor) + (CharsToCopy - CharsLeft),SEEK_SET);
+        fputc(c,Disk);
+    }
+    fseek(Disk,super->file_number*sizeof(descriptor),SEEK_SET);
+    for(it=0;it<sizeof(descriptor);it++)
+        fputc('\000',Disk);
+    /* Clearing descriptors array*/
     int iter;
     for(iter = choice-1; iter<super->file_number; iter++)
     {
@@ -262,6 +294,9 @@ void remove_file(int choice)
         strcpy(descriptors[iter].fname, descriptors[iter+1].fname);
     }
     super->file_number--;
+    fseek(Disk,0L,SEEK_SET);
+    fwrite(super, sizeof(super_block), 1,Disk);
+    fclose(Disk);
 }
 void download_file(char* FileName)
 {
