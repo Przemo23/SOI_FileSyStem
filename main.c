@@ -2,6 +2,8 @@
 #include "FileSystem.h"
 int main()
 {
-    menu();
+    QUIT = 0;
+    load_disk();
+    while(!QUIT) menu();
     return 0;
 }
